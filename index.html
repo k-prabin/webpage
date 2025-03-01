@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload File</title>
+    <title>Stock Frequency by Date</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -12,8 +12,19 @@
     <input type="file" id="fileInput">
     <button onclick="processFile()">Upload</button>
 
-    
-    <p id="result">No data yet.</p>
+    <h3>output</h3>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Result</th>
+                <th>Occurrences</th>
+            </tr>
+        </thead>
+        <tbody id="resultTable">
+            <tr><td colspan="3">No data yet.</td></tr>
+        </tbody>
+    </table>
 
     <script>
         function processFile() {
@@ -52,12 +63,8 @@
         }
 
         function processData(data) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toLocaleDateString("en-GB").split("/").reverse().join("-"); // Format: YYYY-MM-DD
+            let dateWiseStockCount = {};
 
-            let stockCount = {};
-            
             data.forEach(row => {
                 let dateStr = row.date;
                 let stock = row.symbol;
@@ -67,22 +74,38 @@
                 let dateParts = dateStr.split(" ");
                 if (dateParts.length < 2) return;
 
-                let date = dateParts[0].split("-").reverse().join("-"); // Convert to YYYY-MM-DD
-                let time = dateParts[1] + " " + dateParts[2]; // Keep HH:MM AM/PM
+                let date = dateParts[0]; // Extract date (DD-MM-YYYY)
+                let time = dateParts[1] + " " + dateParts[2]; // Extract time (HH:MM AM/PM)
 
-                let stockDate = new Date(date + " " + time);
-
-                let startTime = new Date(yesterdayStr + " 09:15 AM");
-                let endTime = new Date(yesterdayStr + " 10:00 AM");
+                let stockDate = new Date(date.split("-").reverse().join("-") + " " + time);
+                let startTime = new Date(date.split("-").reverse().join("-") + " 09:15 AM");
+                let endTime = new Date(date.split("-").reverse().join("-") + " 10:00 AM");
 
                 if (stockDate >= startTime && stockDate < endTime) {
-                    stockCount[stock] = (stockCount[stock] || 0) + 1;
+                    if (!dateWiseStockCount[date]) dateWiseStockCount[date] = {};
+                    dateWiseStockCount[date][stock] = (dateWiseStockCount[date][stock] || 0) + 1;
                 }
             });
 
-            let mostFrequentStock = Object.keys(stockCount).reduce((a, b) => stockCount[a] > stockCount[b] ? a : b, "No data");
+            displayResults(dateWiseStockCount);
+        }
 
-            document.getElementById("result").innerText = mostFrequentStock;
+        function displayResults(dateWiseStockCount) {
+            let resultTable = document.getElementById("resultTable");
+            resultTable.innerHTML = "";
+
+            Object.keys(dateWiseStockCount).sort((a, b) => new Date(b.split("-").reverse().join("-")) - new Date(a.split("-").reverse().join("-"))).forEach(date => {
+                let stocks = dateWiseStockCount[date];
+                let mostFrequentStock = Object.keys(stocks).reduce((a, b) => stocks[a] > stocks[b] ? a : b, "No data");
+                let occurrences = stocks[mostFrequentStock];
+
+                let row = `<tr>
+                    <td>${date}</td>
+                    <td>${mostFrequentStock}</td>
+                    <td>${occurrences}</td>
+                </tr>`;
+                resultTable.innerHTML += row;
+            });
         }
     </script>
 </body>
