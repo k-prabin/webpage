@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload File</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h2>Upload Excel/CSV File</h2>
+    <input type="file" id="fileInput">
+    <button onclick="processFile()">Upload</button>
+
+    <h3>Most Frequently Appearing Stock (9:15 AM - 10:00 AM Yesterday):</h3>
+    <p id="result">No data yet.</p>
+
+    <script>
+        function processFile() {
+            const fileInput = document.getElementById("fileInput").files[0];
+            if (!fileInput) {
+                alert("Please upload a file!");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const fileContent = event.target.result;
+                if (fileInput.name.endsWith(".csv")) {
+                    Papa.parse(fileContent, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function (results) {
+                            processData(results.data);
+                        }
+                    });
+                } else if (fileInput.name.endsWith(".xlsx")) {
+                    const workbook = XLSX.read(fileContent, { type: "binary" });
+                    const sheetName = workbook.SheetNames[0];
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                    processData(jsonData);
+                } else {
+                    alert("Only CSV or Excel files are allowed.");
+                }
+            };
+
+            if (fileInput.name.endsWith(".xlsx")) {
+                reader.readAsBinaryString(fileInput);
+            } else {
+                reader.readAsText(fileInput);
+            }
+        }
+
+        function processData(data) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toLocaleDateString("en-GB").split("/").reverse().join("-"); // Format: YYYY-MM-DD
+
+            let stockCount = {};
+            
+            data.forEach(row => {
+                let dateStr = row.date;
+                let stock = row.symbol;
+
+                if (!dateStr || !stock) return;
+
+                let dateParts = dateStr.split(" ");
+                if (dateParts.length < 2) return;
+
+                let date = dateParts[0].split("-").reverse().join("-"); // Convert to YYYY-MM-DD
+                let time = dateParts[1] + " " + dateParts[2]; // Keep HH:MM AM/PM
+
+                let stockDate = new Date(date + " " + time);
+
+                let startTime = new Date(yesterdayStr + " 09:15 AM");
+                let endTime = new Date(yesterdayStr + " 10:00 AM");
+
+                if (stockDate >= startTime && stockDate < endTime) {
+                    stockCount[stock] = (stockCount[stock] || 0) + 1;
+                }
+            });
+
+            let mostFrequentStock = Object.keys(stockCount).reduce((a, b) => stockCount[a] > stockCount[b] ? a : b, "No data");
+
+            document.getElementById("result").innerText = mostFrequentStock;
+        }
+    </script>
+</body>
+</html>
